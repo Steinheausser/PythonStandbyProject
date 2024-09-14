@@ -2,8 +2,8 @@ This code was generated through a mix of Claude Sonnet 3.5 and GPT 4-o. You may 
 
 Requirements:
 
-Python: https://www.python.org/downloads/
+- Python: https://www.python.org/downloads/
 
-Excel or Libreoffice to see the final output in a neat format.
+- Excel or Libreoffice to see the final output in a neat format.
 
-You will need openpyxl to let the code output to the excel sheet. You can install it with "pip install openpyxl" You can remove that and let it output to a random txt file.
+- You will need openpyxl to let the code output to the excel sheet. You can install it with "pip install openpyxl". Alternatively, you can remove that part of the code and let it output to a random txt file.
