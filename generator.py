@@ -57,9 +57,13 @@ class ShiftScheduler:
 
     def equalize_shifts(self, max_iterations=2000):
         logging.info("Starting to equalize shifts...")
-        target_total_shifts = self.total_shifts // len(self.names)
+        base_shifts = self.total_shifts // len(self.names)
+        extra_shifts = self.total_shifts % len(self.names)
+
+        target_shifts = {name: base_shifts + (1 if i < extra_shifts else 0) for i, name in enumerate(self.names)}
         target_special_days = len(self.special_days) * 2 // len(self.names)
-        logging.info(f"Target total shifts per person: {target_total_shifts}")
+
+        logging.info(f"Target shifts: {target_shifts}")
         logging.info(f"Target special days per person: {target_special_days}")
 
         iterations = 0
@@ -77,13 +81,13 @@ class ShiftScheduler:
                 is_special = self.is_special_day(date)
 
                 for i, name in enumerate(current_assignees):
-                    if (self.assignments[name]['total'] > target_total_shifts or 
+                    if (self.assignments[name]['total'] > target_shifts[name] or 
                         (is_special and self.assignments[name]['special_days'] > target_special_days)):
                         
                         candidates = [n for n in self.names 
                                       if n not in current_assignees 
                                       and not self.is_consecutive(n, date)
-                                      and (self.assignments[n]['total'] < target_total_shifts or
+                                      and (self.assignments[n]['total'] < target_shifts[n] or
                                            (is_special and self.assignments[n]['special_days'] < target_special_days))]
                         
                         if candidates:
@@ -213,30 +217,24 @@ class ShiftScheduler:
             adjusted_width = (max_length + 2)
             ws.column_dimensions[column_letter].width = adjusted_width
 
-        # Personal Schedule sheet
-        ws_personal = wb.create_sheet(title="Personal Schedules")
-        ws_personal['A1'] = "Person"
-        ws_personal['B1'] = "Dates"
-        ws_personal['C1'] = "Total Shifts"
-        ws_personal['D1'] = "Special Days"
-        for cell in ws_personal[1]:
+        # Personal Schedules sheet
+        ws2 = wb.create_sheet("Personal Schedules")
+
+        # Headers
+        ws2['A1'] = "Person"
+        ws2['B1'] = "Dates"
+        for cell in ws2[1]:
             cell.fill = header_fill
             cell.font = Font(bold=True, color="FFFFFF")
             cell.alignment = Alignment(horizontal="center")
 
         # Data for personal schedules
         for row, (name, stats) in enumerate(self.assignments.items(), start=2):
-            dates = ', '.join(date.strftime('%d/%m/%Y') for date in sorted(stats['dates']))
-            ws_personal.cell(row=row, column=1, value=name)
-            ws_personal.cell(row=row, column=2, value=dates)
-            ws_personal.cell(row=row, column=3, value=stats['total'])
-            ws_personal.cell(row=row, column=4, value=stats['special_days'])
-            for col in range(1, 5):
-                ws_personal.cell(row=row, column=col).border = border
-                ws_personal.cell(row=row, column=col).alignment = Alignment(horizontal="center")
+            ws2.cell(row=row, column=1, value=name)
+            ws2.cell(row=row, column=2, value=", ".join(date.strftime("%d/%m/%Y") for date in sorted(stats['dates'])))
 
         # Adjust column widths for personal schedules
-        for column in ws_personal.columns:
+        for column in ws2.columns:
             max_length = 0
             column_letter = get_column_letter(column[0].column)
             for cell in column:
@@ -246,64 +244,21 @@ class ShiftScheduler:
                 except:
                     pass
             adjusted_width = (max_length + 2)
-            ws_personal.column_dimensions[column_letter].width = adjusted_width
-
-        # Add overall statistics
-        ws_stats = wb.create_sheet(title="Overall Statistics")
-        ws_stats['A1'] = "Statistic"
-        ws_stats['B1'] = "Value"
-        ws_stats['A2'] = "Total number of standbys"
-        ws_stats['B2'] = self.total_shifts
-        ws_stats['A3'] = "Total number of Special Days"
-        ws_stats['B3'] = len(self.special_days)
-
-        for cell in ws_stats['A1:B1'][0]:
-            cell.fill = header_fill
-            cell.font = Font(bold=True, color="FFFFFF")
-            cell.alignment = Alignment(horizontal="center")
-
-        for row in ws_stats['A1:B3']:
-            for cell in row:
-                cell.border = border
-                cell.alignment = Alignment(horizontal="center")
-
-        # Adjust column widths for statistics
-        for column in ws_stats.columns:
-            max_length = 0
-            column_letter = get_column_letter(column[0].column)
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(cell.value)
-                except:
-                    pass
-            adjusted_width = (max_length + 2)
-            ws_stats.column_dimensions[column_letter].width = adjusted_width
+            ws2.column_dimensions[column_letter].width = adjusted_width
 
         wb.save(filename)
-        print(f"Schedule exported to {filename}")
+        logging.info(f"Exported schedule to {filename}")
 
-# Example usage
+# Usage example:
 start_date = datetime(2024, 9, 21)
 end_date = datetime(2024, 12, 31)
 names = ["Shakir", "Fikhry", "Aiman", "Luthfi", "Dalvin", "Hazim", "Jerry", "Yassin", "Donavan"]
-holidays = [
-    datetime(2024, 10, 30),  # Deepavali Eve
-    datetime(2024, 10, 31),  # Deepavali Eve
-    datetime(2024, 12, 24),  # Christmas Eve
-    datetime(2024, 12, 25),  # Christmas
-    datetime(2024, 12, 31),  # New Year's Eve
-]
+holidays = [datetime(2024, 10, 30), datetime(2024, 10, 31),datetime(2024, 12, 31), datetime(2024, 12, 30),datetime(2024, 12, 24), datetime(2024, 12, 25) ]
 
-logging.info("Initializing ShiftScheduler...")
+
 scheduler = ShiftScheduler(start_date, end_date, names, holidays)
-logging.info("Generating schedule...")
 scheduler.generate_schedule()
-logging.info("Printing schedule...")
 scheduler.print_schedule()
-logging.info("Printing personal schedules...")
 scheduler.print_personal_schedules()
-logging.info("Printing statistics...")
 scheduler.print_statistics()
-logging.info("Exporting to Excel...")
 scheduler.export_to_excel("shift_schedule.xlsx")
