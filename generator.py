@@ -39,7 +39,7 @@ class ShiftScheduler:
         self.names = names
         self.holidays = holidays
         self.schedule = {}
-        self.assignments = {name: {'total': 0, 'special_days': 0, 'dates': [], 'last_assigned': None} for name in names}
+        self.assignments = {name: {'total': 0, 'special_days': 0, 'dates': [], 'last_assigned': None, 'weeks': {}} for name in names}
         self.special_days = self.calculate_special_days()
         self.total_shifts = ((self.end_date - self.start_date).days + 1) * 2
 
@@ -54,6 +54,50 @@ class ShiftScheduler:
 
     def is_special_day(self, date):
         return date.weekday() >= 5 or date in self.holidays
+
+    def get_week_number(self, date):
+        return (date - self.start_date).days // 7
+
+    def is_available(self, name, date):
+        week_number = self.get_week_number(date)
+        return self.assignments[name]['weeks'].get(week_number, 0) < 2
+
+    def is_consecutive(self, name, date):
+        prev_day = date - timedelta(days=1)
+        next_day = date + timedelta(days=1)
+        return (prev_day in self.schedule and name in self.schedule[prev_day]) or \
+               (next_day in self.schedule and name in self.schedule[next_day])
+
+    def generate_schedule(self):
+        logging.info("Generating initial schedule...")
+        dates = [self.start_date + timedelta(days=i) for i in range((self.end_date - self.start_date).days + 1)]
+        
+        for current_date in dates:
+            available_names = [name for name in self.names if not self.is_consecutive(name, current_date) and self.is_available(name, current_date)]
+            if len(available_names) < 2:
+                logging.warning(f"Not enough available names for date {current_date}. Attempting to relax constraints.")
+                available_names = [name for name in self.names if not self.is_consecutive(name, current_date)]
+
+            random.shuffle(available_names)
+
+            shift = []
+            for _ in range(2):  # Assign 2 people per day
+                if not available_names:
+                    logging.warning(f"No available names for date {current_date}. Choosing from all names.")
+                    available_names = [name for name in self.names if name not in shift]
+                    random.shuffle(available_names)
+
+                name = available_names.pop(0)
+                shift.append(name)
+                week_number = self.get_week_number(current_date)
+                self.assignments[name]['weeks'][week_number] = self.assignments[name]['weeks'].get(week_number, 0) + 1
+
+            self.schedule[current_date] = shift
+
+        logging.info("Initial schedule generated. Starting balancing process...")
+        self.update_assignments()
+        self.equalize_shifts()
+        logging.info("Schedule generation and balancing completed.")
 
     def equalize_shifts(self, max_iterations=2000):
         logging.info("Starting to equalize shifts...")
@@ -87,11 +131,12 @@ class ShiftScheduler:
                         candidates = [n for n in self.names 
                                       if n not in current_assignees 
                                       and not self.is_consecutive(n, date)
+                                      and self.is_available(n, date)
                                       and (self.assignments[n]['total'] < target_shifts[n] or
                                            (is_special and self.assignments[n]['special_days'] < target_special_days))]
                         
                         if candidates:
-                            replacement = min(candidates, key=lambda x: (self.assignments[x]['total'], self.assignments[x]['special_days']))
+                            replacement = random.choice(candidates)
                             self.schedule[date][i] = replacement
                             self.assignments[name]['total'] -= 1
                             self.assignments[name]['dates'].remove(date)
@@ -100,17 +145,16 @@ class ShiftScheduler:
                             if is_special:
                                 self.assignments[name]['special_days'] -= 1
                                 self.assignments[replacement]['special_days'] += 1
+                            
+                            # Update weeks
+                            week_number = self.get_week_number(date)
+                            self.assignments[name]['weeks'][week_number] -= 1
+                            self.assignments[replacement]['weeks'][week_number] = self.assignments[replacement]['weeks'].get(week_number, 0) + 1
 
             iterations += 1
 
         logging.info(f"Finished equalizing shifts after {iterations} iterations.")
         self.update_assignments()
-
-    def is_consecutive(self, name, date):
-        prev_day = date - timedelta(days=1)
-        next_day = date + timedelta(days=1)
-        return (prev_day in self.schedule and name in self.schedule[prev_day]) or \
-               (next_day in self.schedule and name in self.schedule[next_day])
 
     def update_assignments(self):
         for name in self.names:
@@ -118,6 +162,7 @@ class ShiftScheduler:
             self.assignments[name]['special_days'] = 0
             self.assignments[name]['dates'] = []
             self.assignments[name]['last_assigned'] = None
+            self.assignments[name]['weeks'] = {}
 
         for date, assignees in self.schedule.items():
             for name in assignees:
@@ -127,32 +172,8 @@ class ShiftScheduler:
                     self.assignments[name]['special_days'] += 1
                 if self.assignments[name]['last_assigned'] is None or date > self.assignments[name]['last_assigned']:
                     self.assignments[name]['last_assigned'] = date
-
-    def generate_schedule(self):
-        logging.info("Generating initial schedule...")
-        dates = [self.start_date + timedelta(days=i) for i in range((self.end_date - self.start_date).days + 1)]
-        
-        for current_date in dates:
-            available_names = [name for name in self.names if not self.is_consecutive(name, current_date)]
-            if len(available_names) < 2:
-                available_names = self.names.copy()
-            random.shuffle(available_names)
-
-            shift = []
-            for _ in range(2):  # Assign 2 people per day
-                if not available_names:
-                    available_names = [name for name in self.names if name not in shift]
-                    random.shuffle(available_names)
-
-                name = available_names.pop(0)
-                shift.append(name)
-
-            self.schedule[current_date] = shift
-
-        logging.info("Initial schedule generated. Starting balancing process...")
-        self.update_assignments()
-        self.equalize_shifts()
-        logging.info("Schedule generation and balancing completed.")
+                week_number = self.get_week_number(date)
+                self.assignments[name]['weeks'][week_number] = self.assignments[name]['weeks'].get(week_number, 0) + 1
 
     def print_schedule(self):
         print("Schedule by Date:")
@@ -168,7 +189,7 @@ class ShiftScheduler:
     def print_statistics(self):
         print("\nAssignment Statistics:")
         for name, stats in self.assignments.items():
-            print(f"{name}: Total: {stats['total']}, Special Days: {stats['special_days']}")
+            print(f"{name}: Total: {stats['total']}, Special Days: {stats['special_days']}, Weeks: {len(stats['weeks'])}")
 
         print("\nOverall Statistics:")
         print(f"Total number of standbys: {self.total_shifts}")
@@ -223,6 +244,9 @@ class ShiftScheduler:
         # Headers
         ws2['A1'] = "Person"
         ws2['B1'] = "Dates"
+        ws2['C1'] = "Total Shifts"
+        ws2['D1'] = "Special Days"
+        ws2['E1'] = "Weeks"
         for cell in ws2[1]:
             cell.fill = header_fill
             cell.font = Font(bold=True, color="FFFFFF")
@@ -232,6 +256,9 @@ class ShiftScheduler:
         for row, (name, stats) in enumerate(self.assignments.items(), start=2):
             ws2.cell(row=row, column=1, value=name)
             ws2.cell(row=row, column=2, value=", ".join(date.strftime("%d/%m/%Y") for date in sorted(stats['dates'])))
+            ws2.cell(row=row, column=3, value=stats['total'])
+            ws2.cell(row=row, column=4, value=stats['special_days'])
+            ws2.cell(row=row, column=5, value=len(stats['weeks']))
 
         # Adjust column widths for personal schedules
         for column in ws2.columns:
@@ -249,12 +276,11 @@ class ShiftScheduler:
         wb.save(filename)
         logging.info(f"Exported schedule to {filename}")
 
-# Usage example:
-start_date = datetime(2024, 9, 21)
+# Usage example
+start_date = datetime(2024, 9, 28)
 end_date = datetime(2024, 12, 31)
 names = ["Shakir", "Fikhry", "Aiman", "Luthfi", "Dalvin", "Hazim", "Jerry", "Yassin", "Donavan"]
-holidays = [datetime(2024, 10, 30), datetime(2024, 10, 31),datetime(2024, 12, 31), datetime(2024, 12, 30),datetime(2024, 12, 24), datetime(2024, 12, 25) ]
-
+holidays = [datetime(2024, 10, 30), datetime(2024, 10, 31), datetime(2024, 12, 31), datetime(2024, 12, 30), datetime(2024, 12, 24), datetime(2024, 12, 25)]
 
 scheduler = ShiftScheduler(start_date, end_date, names, holidays)
 scheduler.generate_schedule()
