@@ -17,6 +17,7 @@ logging.basicConfig(
     ]
 )
 
+
 # Redirect stdout and stderr to logging
 class LoggingStreamHandler:
     def __init__(self, level):
@@ -31,6 +32,10 @@ class LoggingStreamHandler:
 
 sys.stdout = LoggingStreamHandler(logging.info)
 sys.stderr = LoggingStreamHandler(logging.error)
+
+def rotate_list(lst, n):
+    """Rotate a list by n positions."""
+    return lst[n:] + lst[:n]
 
 class ShiftScheduler:
     def __init__(self, start_date, end_date, names, holidays):
@@ -206,9 +211,10 @@ class ShiftScheduler:
 
         # Headers
         ws['A1'] = "Date"
-        ws['B1'] = "Person 1"
-        ws['C1'] = "Person 2"
-        ws['D1'] = "Special Day"
+        ws['B1'] = "Day"
+        ws['C1'] = "Person 1"
+        ws['D1'] = "Person 2"
+        ws['E1'] = "Special Day"
         for cell in ws[1]:
             cell.fill = header_fill
             cell.font = Font(bold=True, color="FFFFFF")
@@ -217,13 +223,14 @@ class ShiftScheduler:
         # Data for shift schedule
         for row, (date, shift) in enumerate(sorted(self.schedule.items()), start=2):
             ws.cell(row=row, column=1, value=date.strftime("%d/%m/%Y"))
-            for col, name in enumerate(shift, start=2):
+            ws.cell(row=row, column=2, value=date.strftime("%A"))  # Add day of the week
+            for col, name in enumerate(shift, start=3):
                 cell = ws.cell(row=row, column=col, value=name)
                 cell.border = border
                 cell.alignment = Alignment(horizontal="center")
-            ws.cell(row=row, column=4, value="Yes" if self.is_special_day(date) else "No")
-            ws.cell(row=row, column=4).border = border
-            ws.cell(row=row, column=4).alignment = Alignment(horizontal="center")
+            ws.cell(row=row, column=5, value="Yes" if self.is_special_day(date) else "No")
+            ws.cell(row=row, column=5).border = border
+            ws.cell(row=row, column=5).alignment = Alignment(horizontal="center")
 
         # Adjust column widths for shift schedule
         for column in ws.columns:
@@ -277,12 +284,17 @@ class ShiftScheduler:
         logging.info(f"Exported schedule to {filename}")
 
 # Usage example
-start_date = datetime(2024, 9, 28)
+start_date = datetime(2024, 9, 21)
 end_date = datetime(2024, 12, 31)
 names = ["Shakir", "Fikhry", "Aiman", "Luthfi", "Dalvin", "Hazim", "Jerry", "Yassin", "Donavan"]
 holidays = [datetime(2024, 10, 30), datetime(2024, 10, 31), datetime(2024, 12, 31), datetime(2024, 12, 30), datetime(2024, 12, 24), datetime(2024, 12, 25)]
 
-scheduler = ShiftScheduler(start_date, end_date, names, holidays)
+# Rotate the list of names by a random number
+rotation = random.randint(0, len(names) - 1)
+rotated_names = rotate_list(names, rotation)
+logging.info(f"Names rotated by {rotation} positions: {rotated_names}")
+
+scheduler = ShiftScheduler(start_date, end_date, rotated_names, holidays)
 scheduler.generate_schedule()
 scheduler.print_schedule()
 scheduler.print_personal_schedules()
