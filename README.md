@@ -7,3 +7,14 @@ Requirements:
 - Excel or Libreoffice to see the final output in a neat format.
 
 - You will need openpyxl to let the code output to the excel sheet. You can install it with "pip install openpyxl". Alternatively, you can remove that part of the code and let it output to a random txt file.
+
+
+Purported Features! (not that it matters, it was written by AI anyway... and I've never written python...)
+
+- Logging!
+- Excel formatting!
+- Limiting of 2 standbys per week!
+- Consideration of special days! (Considers holidays and Sat/Sun as Special Days. Holidays have to be edited manually unfortunately.)
+- Random rotations of the list!
+- Making sure each person does an equal number of days!
+
