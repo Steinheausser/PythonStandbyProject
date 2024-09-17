@@ -9,8 +9,7 @@ Requirements:
 - Openpyxl for excel integration. Install it with "pip install openpyxl". [Necessary for the code, but you can delete the excel components of the code and just let it output to the log file.]
 
 
-Purported Features! (at least according to visual checks on the results and AI)
-
+Purported Features! (at least according to visual checks on the results. I am not familiar with python/actual software development. Only hobbyist stuff.)
 - Logging!
 - Excel formatting!
 - Limiting of 2 standbys per week!
