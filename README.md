@@ -6,7 +6,7 @@ Requirements:
 
 - Excel or Libreoffice to see the final output in a neat format.
 
-- You will need openpyxl to let the code output to the excel sheet. You can install it with "pip install openpyxl". Alternatively, you can remove that part of the code and let it output to a random txt file.
+- Openpyxl for excel integration. Install it with "pip install openpyxl". [Necessary for the code, but you can delete the excel components of the code and just let it output to the log file.]
 
 
 Purported Features! (at least according to visual checks on the results and AI)
