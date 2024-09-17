@@ -9,7 +9,7 @@ Requirements:
 - You will need openpyxl to let the code output to the excel sheet. You can install it with "pip install openpyxl". Alternatively, you can remove that part of the code and let it output to a random txt file.
 
 
-Purported Features! (not that it matters, it was written by AI anyway... and I've never written python...)
+Purported Features! (at least according to visual checks on the results and AI)
 
 - Logging!
 - Excel formatting!
