@@ -284,7 +284,7 @@ class ShiftScheduler:
         logging.info(f"Exported schedule to {filename}")
 
 # Usage example
-start_date = datetime(2024, 9, 21)
+start_date = datetime(2024, 9, 28)
 end_date = datetime(2024, 12, 31)
 names = ["Shakir", "Fikhry", "Aiman", "Luthfi", "Dalvin", "Hazim", "Jerry", "Yassin", "Donavan"]
 holidays = [datetime(2024, 10, 30), datetime(2024, 10, 31), datetime(2024, 12, 31), datetime(2024, 12, 30), datetime(2024, 12, 24), datetime(2024, 12, 25)]
