@@ -12,8 +12,8 @@ Requirements:
 Purported Features! (at least according to visual checks on the results. I am not familiar with python/actual software development.)
 - Logging!
 - Excel formatting!
-- Limiting of 2 standbys per week!
+- Limiting of x standbys per week! ( where x is the minimum number of days necessary per week for a given time frame and number of provosts)
 - Consideration of special days! (Considers holidays and Sat/Sun as Special Days. Holidays have to be edited manually unfortunately.)
 - Random rotations of the list!
-- Making sure each person does an equal number of days!
+- Making sure each person does an equal number of days! (roughly, I think as it fills up the last few days of the given time frame it will inevitably give a few people more shifts unless the total number of required shifts is a nice number)
 
