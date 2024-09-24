@@ -17,7 +17,6 @@ logging.basicConfig(
     ]
 )
 
-
 # Redirect stdout and stderr to logging
 class LoggingStreamHandler:
     def __init__(self, level):
@@ -46,7 +45,9 @@ class ShiftScheduler:
         self.schedule = {}
         self.assignments = {name: {'total': 0, 'special_days': 0, 'dates': [], 'last_assigned': None, 'weeks': {}} for name in names}
         self.special_days = self.calculate_special_days()
-        self.total_shifts = ((self.end_date - self.start_date).days + 1) * 2
+        self.total_shifts = ((self.end_date - self.start_date).days + 1) * 4
+        self.total_weeks = ((self.end_date - self.start_date).days + 1) // 7
+        self.shifts_per_week = (4 * self.total_weeks) // len(self.names)
 
     def calculate_special_days(self):
         special_days = []
@@ -65,7 +66,7 @@ class ShiftScheduler:
 
     def is_available(self, name, date):
         week_number = self.get_week_number(date)
-        return self.assignments[name]['weeks'].get(week_number, 0) < 2
+        return self.assignments[name]['weeks'].get(week_number, 0) < self.shifts_per_week
 
     def is_consecutive(self, name, date):
         prev_day = date - timedelta(days=1)
@@ -79,14 +80,14 @@ class ShiftScheduler:
         
         for current_date in dates:
             available_names = [name for name in self.names if not self.is_consecutive(name, current_date) and self.is_available(name, current_date)]
-            if len(available_names) < 2:
+            if len(available_names) < 4:
                 logging.warning(f"Not enough available names for date {current_date}. Attempting to relax constraints.")
                 available_names = [name for name in self.names if not self.is_consecutive(name, current_date)]
 
             random.shuffle(available_names)
 
             shift = []
-            for _ in range(2):  # Assign 2 people per day
+            for _ in range(4):  # Assign 4 people per day
                 if not available_names:
                     logging.warning(f"No available names for date {current_date}. Choosing from all names.")
                     available_names = [name for name in self.names if name not in shift]
@@ -106,13 +107,10 @@ class ShiftScheduler:
 
     def equalize_shifts(self, max_iterations=2000):
         logging.info("Starting to equalize shifts...")
-        base_shifts = self.total_shifts // len(self.names)
-        extra_shifts = self.total_shifts % len(self.names)
+        target_shifts = self.total_shifts // len(self.names)
+        target_special_days = len(self.special_days) * 4 // len(self.names)
 
-        target_shifts = {name: base_shifts + (1 if i < extra_shifts else 0) for i, name in enumerate(self.names)}
-        target_special_days = len(self.special_days) * 2 // len(self.names)
-
-        logging.info(f"Target shifts: {target_shifts}")
+        logging.info(f"Target shifts per person: {target_shifts}")
         logging.info(f"Target special days per person: {target_special_days}")
 
         iterations = 0
@@ -130,14 +128,14 @@ class ShiftScheduler:
                 is_special = self.is_special_day(date)
 
                 for i, name in enumerate(current_assignees):
-                    if (self.assignments[name]['total'] > target_shifts[name] or 
+                    if (self.assignments[name]['total'] > target_shifts or 
                         (is_special and self.assignments[name]['special_days'] > target_special_days)):
                         
                         candidates = [n for n in self.names 
                                       if n not in current_assignees 
                                       and not self.is_consecutive(n, date)
                                       and self.is_available(n, date)
-                                      and (self.assignments[n]['total'] < target_shifts[n] or
+                                      and (self.assignments[n]['total'] < target_shifts or
                                            (is_special and self.assignments[n]['special_days'] < target_special_days))]
                         
                         if candidates:
@@ -199,6 +197,7 @@ class ShiftScheduler:
         print("\nOverall Statistics:")
         print(f"Total number of standbys: {self.total_shifts}")
         print(f"Total number of Special Days: {len(self.special_days)}")
+        print(f"Shifts per week per person: {self.shifts_per_week}")
 
     def export_to_excel(self, filename):
         wb = Workbook()
@@ -214,7 +213,9 @@ class ShiftScheduler:
         ws['B1'] = "Day"
         ws['C1'] = "Person 1"
         ws['D1'] = "Person 2"
-        ws['E1'] = "Special Day"
+        ws['E1'] = "Person 3"
+        ws['F1'] = "Person 4"
+        ws['G1'] = "Special Day"
         for cell in ws[1]:
             cell.fill = header_fill
             cell.font = Font(bold=True, color="FFFFFF")
@@ -228,9 +229,9 @@ class ShiftScheduler:
                 cell = ws.cell(row=row, column=col, value=name)
                 cell.border = border
                 cell.alignment = Alignment(horizontal="center")
-            ws.cell(row=row, column=5, value="Yes" if self.is_special_day(date) else "No")
-            ws.cell(row=row, column=5).border = border
-            ws.cell(row=row, column=5).alignment = Alignment(horizontal="center")
+            ws.cell(row=row, column=7, value="Yes" if self.is_special_day(date) else "No")
+            ws.cell(row=row, column=7).border = border
+            ws.cell(row=row, column=7).alignment = Alignment(horizontal="center")
 
         # Adjust column widths for shift schedule
         for column in ws.columns:
